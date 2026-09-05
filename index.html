@@ -298,6 +298,8 @@ let currentChapter = -1;
 let observer = null;
 let chapterCache = {};
 let loadingChapter = -1;
+let chapterRequestId = 0;
+let pendingScrollTarget = null;
 
 function setupObserver() {
   if (observer) observer.disconnect();
@@ -323,27 +325,42 @@ function setupObserver() {
 
 function loadChapter(idx, scrollToId) {
   if (currentChapter === idx && !scrollToId) return;
-  if (loadingChapter === idx) return;
+  if (loadingChapter === idx) {
+    pendingScrollTarget = scrollToId || pendingScrollTarget;
+    return;
+  }
 
   if (chapterCache[idx] !== undefined) {
+    chapterRequestId += 1;
+    loadingChapter = -1;
     _renderChapter(idx, scrollToId);
     return;
   }
 
+  const requestId = ++chapterRequestId;
   loadingChapter = idx;
+  pendingScrollTarget = scrollToId || null;
   const content = document.getElementById('content');
   content.innerHTML = '<div class="loading">加载中...</div>';
 
   const script = document.createElement('script');
   script.src = 'chapter-' + idx + '.js';
+  script.async = true;
   script.onload = function() {
     chapterCache[idx] = window._chapterHtml;
     window._chapterHtml = null;
+    script.remove();
+    if (requestId !== chapterRequestId) return;
+    const target = pendingScrollTarget;
+    pendingScrollTarget = null;
     loadingChapter = -1;
-    _renderChapter(idx, scrollToId);
+    _renderChapter(idx, target);
   };
   script.onerror = function() {
+    script.remove();
+    if (requestId !== chapterRequestId) return;
     content.innerHTML = '<div class="loading">章节加载失败，请刷新重试</div>';
+    pendingScrollTarget = null;
     loadingChapter = -1;
   };
   document.head.appendChild(script);
