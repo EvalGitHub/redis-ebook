@@ -137,6 +137,23 @@ body {
 .nav-sections li.active { color: var(--accent); background: rgba(137,180,250,0.1); }
 .nav-chapter.hidden { display: none; }
 .nav-sections li.hidden { display: none; }
+#tocTip {
+  position: fixed;
+  z-index: 400;
+  display: none;
+  max-width: 420px;
+  padding: 6px 10px;
+  background: var(--bg-sidebar);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: normal;
+  word-break: break-all;
+  pointer-events: none;
+}
 
 .search-results {
   list-style: none;
@@ -547,6 +564,48 @@ buildNav();
 loadChapter(0);
 const firstCh = document.querySelector('[data-chapter="0"]');
 if (firstCh) toggleChapter(firstCh);
+
+/* 侧边栏被省略号截断的目录项，鼠标移入时用浮层展示全文 */
+(function () {
+  let tip = document.getElementById('tocTip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'tocTip';
+    document.body.appendChild(tip);
+  }
+  const list = document.getElementById('tocList');
+  const side = document.getElementById('sidebar');
+  if (!list || !side) return;
+  const hide = () => { tip.style.display = 'none'; };
+  const show = (el) => {
+    const text = (el.classList.contains('nav-chapter')
+      ? el.textContent.replace('▶', '')
+      : el.textContent).trim();
+    if (!text) { hide(); return; }
+    tip.textContent = text;
+    tip.style.display = 'block';
+    const r = el.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    let x = r.right + 8;
+    let y = r.top + r.height / 2 - tr.height / 2;
+    if (x + tr.width > window.innerWidth - 8) x = Math.max(8, window.innerWidth - 8 - tr.width);
+    if (y + tr.height > window.innerHeight - 8) y = window.innerHeight - 8 - tr.height;
+    if (y < 8) y = 8;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  };
+  list.addEventListener('mouseover', (e) => {
+    const el = e.target.closest ? e.target.closest('.nav-chapter, .nav-sections li') : null;
+    if (!el || el.offsetWidth === 0) { hide(); return; }
+    if (el.scrollWidth <= el.clientWidth + 1) { hide(); return; }
+    show(el);
+  });
+  list.addEventListener('mouseleave', hide);
+  list.addEventListener('click', hide);
+  side.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('resize', hide);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+})();
 </script>
 </body>
 </html>
